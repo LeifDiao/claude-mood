@@ -15,6 +15,16 @@ const path = require('path');
 const os = require('os');
 const url = require('url');
 
+// 终端日志语言：按系统 locale 自动选中/英。可用 CREW_LANG=zh|en 强制覆盖。
+// 命中 zh（如 zh_CN.UTF-8 / zh-Hans）走中文，其余一律英文。
+const LOG_ZH = (() => {
+  const force = (process.env.CREW_LANG || '').toLowerCase();
+  if (force === 'zh') return true;
+  if (force === 'en') return false;
+  const loc = (process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANG || '').toLowerCase();
+  return loc.indexOf('zh') === 0; // 如 zh_CN.UTF-8 / zh-Hans
+})();
+
 // ---------------------------------------------------------------------------
 // CONFIG — 所有阈值集中在这里，全部可由环境变量覆盖，改参数无需改代码。
 // ---------------------------------------------------------------------------
@@ -66,13 +76,10 @@ const INDEX_HTML = path.join(PUBLIC_DIR, 'index.html');
 // MOOD 固定查表（emoji / 中文标签），纯查找，不在算法里计算。
 // ---------------------------------------------------------------------------
 // 9 个状态：情境类（waiting/fleet/fresh/doze）+ 心情类（hot/stuck/full/excited/online）。
+// emoji 与状态语言无关，留在后端；人类可读的中/英文标签由前端 i18n 表负责。
 const MOOD_EMOJI = {
   waiting: '🙋', permission: '🔐', fleet: '🐝', fresh: '🆕', doze: '😴',
   hot: '🥵', stuck: '🤔', full: '🫗', excited: '🎉', online: '😎',
-};
-const MOOD_LABEL = {
-  waiting: '在等你', permission: '等你批权限', fleet: '在带队', fresh: '刚开工', doze: '在发呆',
-  hot: '有点红温', stuck: '陷进去了', full: '快满了', excited: '收尾了', online: '状态在线',
 };
 // 状态全集（顺序 = 前端 tally 顺序）
 const STATES = ['waiting', 'permission', 'fleet', 'fresh', 'doze', 'hot', 'stuck', 'full', 'excited', 'online'];
@@ -93,20 +100,8 @@ const WRAP_MARKERS = [
 // 小工具
 // ---------------------------------------------------------------------------
 
-// 把毫秒差转成中文相对时间：<60s 刚刚；<60min N 分钟前；<24h N 小时前；else N 天前。
-function relativeZh(ms) {
-  if (ms < 60 * 1000) return '刚刚';
-  if (ms < 60 * 60 * 1000) return `${Math.floor(ms / (60 * 1000))} 分钟前`;
-  if (ms < 24 * 60 * 60 * 1000) return `${Math.floor(ms / (60 * 60 * 1000))} 小时前`;
-  return `${Math.floor(ms / (24 * 60 * 60 * 1000))} 天前`;
-}
-
-// 给 doze 文案用：把毫秒差转成 "N 分钟" / "N 小时" / "N 天" 这样的"时长"短语（不带"前"）。
-function durationZh(ms) {
-  if (ms < 60 * 60 * 1000) return `${Math.max(1, Math.floor(ms / (60 * 1000)))} 分钟`;
-  if (ms < 24 * 60 * 60 * 1000) return `${Math.floor(ms / (60 * 60 * 1000))} 小时`;
-  return `${Math.floor(ms / (24 * 60 * 60 * 1000))} 天`;
-}
+// 注：相对时间（"3 分钟前" / "3m ago"）与时长短语过去由后端拼好下发；现在改为后端只发
+// 原始毫秒（lastActiveAgeMs / reason.ms），由前端 i18n 按所选语言格式化，故此处不再需要。
 
 // 大小写不敏感：haystack 是否命中 markers 任意一个子串。
 function anyMarker(haystack, markers) {
@@ -245,20 +240,21 @@ function computeMood(parsedLines, mtimeMs) {
 
   // DECISION（只决"干活心情"：hot/stuck/excited/online；首个命中即返回）。
   // waiting/fleet/fresh/doze/full 在 buildState 里按更高优先级覆盖。
+  // reason 一律返回「结构化原因」{ key, ... 数值参数 }，人类可读文案由前端按所选语言渲染。
   // 1) 报错风暴 -> hot
   if (errInLast10 >= C.HOT_ERR_IN_LAST10 || maxConsecErr >= C.HOT_CONSEC_ERR) {
-    return { mood: 'hot', reason: `近期 ${Math.max(errInLast10, maxConsecErr)} 次报错` };
+    return { mood: 'hot', reason: { key: 'errors', n: Math.max(errInLast10, maxConsecErr) } };
   }
   // 2) 自述卡住 -> stuck（只看最后一条消息）
   if (anyMarker(lastAssistantText, STUCK_MARKERS)) {
-    return { mood: 'stuck', reason: 'AI 说卡住/要重开' };
+    return { mood: 'stuck', reason: { key: 'stuck' } };
   }
   // 3) 收尾词（只看最后一条消息）-> excited（不再把"单纯连续成功"当兴奋）
   if (anyMarker(lastAssistantText, WRAP_MARKERS)) {
-    return { mood: 'excited', reason: '刚说完成了' };
+    return { mood: 'excited', reason: { key: 'finished' } };
   }
   // 4) 默认 -> online（平稳干活，包括一路成功）
-  return { mood: 'online', reason: '状态平稳' };
+  return { mood: 'online', reason: { key: 'steady' } };
 }
 
 // ---------------------------------------------------------------------------
@@ -584,13 +580,15 @@ function buildState() {
     // 注意：fleet 必须排在 waiting 之前——编排 subagent / workflow 时，主会话这一轮
     // 往往已经说完话（末行是 assistant 纯文本 → awaitingUser=true），但下面一堆小弟
     // 其实正在跑。这种情况是「在带队」而不是「在等你」，否则会误显示 🙋。
+    // reason 一律是「结构化原因」{ key, ... 数值参数 }；带时长/计数的，参数也一并发出，
+    // 由前端按所选语言（中/英）渲染成人类可读文案。后端只发数据，不发文案。
     let state, reason;
     if (subagentCount > 0) {
       state = 'fleet';
-      reason = `${subagentCount} 个小弟在跑`;
+      reason = { key: 'fleet', n: subagentCount };
     } else if (summary.awaitingUser) {
       state = 'waiting';
-      reason = ageMs > 40 * 1000 ? `等你 ${durationZh(ageMs)}了` : '说完了，等你回话';
+      reason = ageMs > 40 * 1000 ? { key: 'waiting_dur', ms: Math.round(ageMs) } : { key: 'waiting_just' };
     } else if (
       summary.awaitingTool &&
       ageMs > CONFIG.permissionStallMs &&
@@ -598,13 +596,13 @@ function buildState() {
     ) {
       // 末行卡在 tool_use 没下文 = 工具迟迟没返回，多半在等你点"允许"。
       state = 'permission';
-      reason = `卡 ${durationZh(ageMs)}了，可能等你批权限`;
+      reason = { key: 'permission', ms: Math.round(ageMs) };
     } else if (justStarted) {
       state = 'fresh';
-      reason = '刚开工，热身中';
+      reason = { key: 'fresh' };
     } else if (ageMs > CONFIG.dozeMs) {
       state = 'doze';
-      reason = `${durationZh(ageMs)}没动静`;
+      reason = { key: 'doze', ms: Math.round(ageMs) };
     } else if (
       ctxSource === 'real' &&
       contextPct >= CONFIG.FULL_PCT &&
@@ -612,13 +610,11 @@ function buildState() {
     ) {
       // 真实窗口快满了（红温/卡住优先级更高，所以只在 online/excited 时覆盖）
       state = 'full';
-      reason = `上下文 ${contextPct}% 快满了`;
+      reason = { key: 'full', pct: contextPct };
     } else {
       state = summary.moodMood; // hot / stuck / excited / online
-      reason = summary.moodReason;
+      reason = summary.moodReason; // 已是结构化对象（见 computeMood）
     }
-    // 🐝 在带队：把人数顶到标签上，更醒目（"在带队 ×6"）
-    const moodLabel = state === 'fleet' ? `在带队 ×${subagentCount}` : MOOD_LABEL[state];
 
     sessions.push({
       id,
@@ -630,16 +626,15 @@ function buildState() {
       model,
       mood: state,
       moodEmoji: MOOD_EMOJI[state],
-      moodLabel,
-      moodReason: reason,
-      subagentCount,
+      moodReason: reason, // 结构化原因 { key, n?/ms?/pct? }
+      subagentCount, // 前端据此拼「在带队 ×N」/「Leading ×N」
       contextTokens: summary.contextTokens,
       contextWindow,
       contextPct,
       ctxSource,
       messageCount: summary.messageCount,
       lastActiveMs: Math.round(seenMs), // 过滤/排序用"还活着"的时间
-      lastActiveText: relativeZh(ageMs), // 文案显示"上次干活"多久前
+      lastActiveAgeMs: Math.round(ageMs), // "上次干活"距今毫秒；前端按语言格式化成相对时间
       isActiveNow,
     });
   }
@@ -811,22 +806,23 @@ function listen(port, attemptsLeft) {
   server.once('error', (err) => {
     if (err && err.code === 'EADDRINUSE' && attemptsLeft > 0) {
       const next = port + 1;
-      console.log(`端口 ${port} 被占用，尝试 ${next} …`);
+      console.log(LOG_ZH ? `端口 ${port} 被占用，尝试 ${next} …` : `Port ${port} is in use, trying ${next} …`);
       setTimeout(() => listen(next, attemptsLeft - 1), 0);
     } else {
-      console.error('服务器启动失败：', err && err.message ? err.message : err);
+      const msg = err && err.message ? err.message : err;
+      console.error(LOG_ZH ? '服务器启动失败：' : 'Failed to start server:', msg);
       process.exit(1);
     }
   });
   server.listen(port, '127.0.0.1', () => {
     const urlStr = `http://127.0.0.1:${port}`;
     console.log('');
-    console.log('  🚢  Claude Crew  —  零 token、纯本地');
+    console.log(LOG_ZH ? '  🚢  Claude Crew  —  零 token、纯本地' : '  🚢  Claude Crew  —  zero tokens, all local');
     console.log('  ─────────────────────────────────────');
-    console.log(`  仪表盘:  ${urlStr}`);
-    console.log(`  接口:    ${urlStr}/api/state`);
-    console.log(`  数据源:  ${PROJECTS_ROOT}`);
-    console.log('  只读本地 transcript，绝不发起任何对外请求。');
+    console.log(LOG_ZH ? `  仪表盘:  ${urlStr}` : `  Dashboard:  ${urlStr}`);
+    console.log(LOG_ZH ? `  接口:    ${urlStr}/api/state` : `  API:        ${urlStr}/api/state`);
+    console.log(LOG_ZH ? `  数据源:  ${PROJECTS_ROOT}` : `  Source:     ${PROJECTS_ROOT}`);
+    console.log(LOG_ZH ? '  只读本地 transcript，绝不发起任何对外请求。' : '  Reads local transcripts only — never makes any outbound request.');
     console.log('');
   });
 }

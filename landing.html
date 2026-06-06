@@ -478,13 +478,23 @@
 
 <script>
 function crewSetLang(l){
+  if(l!=='zh' && l!=='en') l='zh';
   document.body.classList.toggle('lang-en', l==='en');
-  try{ localStorage.setItem('crewLang', l); }catch(e){}
+  // 与仪表盘共用同一个键（crew-lang），在落地页选的语言进面板后仍记得。
+  try{ localStorage.setItem('crew-lang', l); }catch(e){}
   var bs = document.querySelectorAll('.langtoggle button');
   for(var i=0;i<bs.length;i++){ bs[i].classList.toggle('on', bs[i].getAttribute('data-l')===l); }
   document.documentElement.lang = (l==='en') ? 'en' : 'zh-CN';
 }
-(function(){ var l='zh'; try{ l = localStorage.getItem('crewLang') || 'zh'; }catch(e){} crewSetLang(l); })();
+(function(){
+  // 记住的优先；否则按浏览器语言（zh* -> 中文，其余 -> 英文），与仪表盘一致。
+  var l;
+  try{ l = localStorage.getItem('crew-lang'); }catch(e){}
+  if(l!=='zh' && l!=='en'){
+    l = (navigator.language||navigator.userLanguage||'').toLowerCase().indexOf('zh')===0 ? 'zh' : 'en';
+  }
+  crewSetLang(l);
+})();
 </script>
 </body>
 </html>
