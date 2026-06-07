@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Claude Crew · Mac double-click launcher
+# Claude Mood · Mac double-click launcher
 # Starts the local dashboard, opens it in your browser, and stays in the
 # foreground so closing this window stops the server.
 #
@@ -13,8 +13,8 @@ if ! command -v node >/dev/null 2>&1; then
   echo ""
   echo "  ❌  找不到 Node.js / Node.js not found"
   echo ""
-  echo "  Claude Crew 需要 Node.js >= 18。"
-  echo "  Claude Crew needs Node.js >= 18."
+  echo "  Claude Mood 需要 Node.js >= 18。"
+  echo "  Claude Mood needs Node.js >= 18."
   echo ""
   echo "  请前往 https://nodejs.org 安装后重试。"
   echo "  Please install it from https://nodejs.org and try again."
@@ -26,7 +26,7 @@ fi
 PORT="${PORT:-4242}"
 
 echo ""
-echo "  🚀  Claude Crew 启动中… / starting up…"
+echo "  🚀  Claude Mood 启动中… / starting up…"
 echo "  你的小 Claude 们都在忙啥 → http://localhost:${PORT}"
 echo "  关闭这个窗口即可停止服务 / Close this window to stop the server."
 echo ""

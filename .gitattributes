@@ -1,0 +1,6 @@
+# Claude Mood is a tiny local dashboard — a Node server plus two HTML pages.
+# Keep the "Languages" bar honest: let JavaScript (the actual app) show, but exclude
+# the large HTML UI pages and CSS from Linguist so they don't drown it out.
+*.html  linguist-documentation
+*.css   linguist-detectable=false
+docs/index.html linguist-generated

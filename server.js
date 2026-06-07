@@ -1,5 +1,5 @@
 /*
- * Claude Crew — 零 token、纯本地。
+ * Claude Mood — 零 token、纯本地。
  * 这个服务器只做三件事：读取 ~/.claude/projects 下已经写好的会话 jsonl 文件、
  * 在内存里把它们解析成会话状态、再通过 127.0.0.1 上的 HTTP 把状态喂给本地仪表盘。
  * 全程没有任何 LLM 调用、没有任何模型推理、没有任何对外网络请求——心情(mood)、标题、
@@ -15,10 +15,10 @@ const path = require('path');
 const os = require('os');
 const url = require('url');
 
-// 终端日志语言：按系统 locale 自动选中/英。可用 CREW_LANG=zh|en 强制覆盖。
+// 终端日志语言：按系统 locale 自动选中/英。可用 MOOD_LANG=zh|en 强制覆盖。
 // 命中 zh（如 zh_CN.UTF-8 / zh-Hans）走中文，其余一律英文。
 const LOG_ZH = (() => {
-  const force = (process.env.CREW_LANG || '').toLowerCase();
+  const force = (process.env.MOOD_LANG || '').toLowerCase();
   if (force === 'zh') return true;
   if (force === 'en') return false;
   const loc = (process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANG || '').toLowerCase();
@@ -53,7 +53,7 @@ const CONFIG = (() => {
     dozeMs: dozeMin * 60 * 1000, // 默认 12min 没动静 => 发呆
     contextWindow, // 估算窗口（无边车真实值时的回落），默认 1000000
     cap: 40,
-    // statusline 边车：真实窗口大小由 statusline 脚本写入 ~/.claude/crew-ctx/<sid>.json
+    // statusline 边车：真实窗口大小由 statusline 脚本写入 ~/.claude/mood-ctx/<sid>.json
     sidecarUseMs: 24 * 60 * 60 * 1000, // 24h 内的边车才采用（覆盖所有展示中的会话）
     sidecarGcMs: 7 * 24 * 60 * 60 * 1000, // 超过 7 天的边车文件顺手清理
     // mood 算法常量
@@ -68,7 +68,7 @@ const CONFIG = (() => {
 })();
 
 const PROJECTS_ROOT = path.join(os.homedir(), '.claude', 'projects');
-const CREW_CTX_DIR = path.join(os.homedir(), '.claude', 'crew-ctx');
+const MOOD_CTX_DIR = path.join(os.homedir(), '.claude', 'mood-ctx');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const INDEX_HTML = path.join(PUBLIC_DIR, 'index.html');
 
@@ -452,13 +452,13 @@ function loadSidecarWindows(now) {
   const map = new Map();
   let entries;
   try {
-    entries = fs.readdirSync(CREW_CTX_DIR, { withFileTypes: true });
+    entries = fs.readdirSync(MOOD_CTX_DIR, { withFileTypes: true });
   } catch (_) {
     return map; // 目录不存在 = 没装增强
   }
   for (const e of entries) {
     if (!e.isFile() || !e.name.endsWith('.json')) continue;
-    const p = path.join(CREW_CTX_DIR, e.name);
+    const p = path.join(MOOD_CTX_DIR, e.name);
     let st;
     try { st = fs.statSync(p); } catch (_) { continue; }
     const age = now - st.mtimeMs;
@@ -817,7 +817,7 @@ function listen(port, attemptsLeft) {
   server.listen(port, '127.0.0.1', () => {
     const urlStr = `http://127.0.0.1:${port}`;
     console.log('');
-    console.log(LOG_ZH ? '  🚢  Claude Crew  —  零 token、纯本地' : '  🚢  Claude Crew  —  zero tokens, all local');
+    console.log(LOG_ZH ? '  🚢  Claude Mood  —  零 token、纯本地' : '  🚢  Claude Mood  —  zero tokens, all local');
     console.log('  ─────────────────────────────────────');
     console.log(LOG_ZH ? `  仪表盘:  ${urlStr}` : `  Dashboard:  ${urlStr}`);
     console.log(LOG_ZH ? `  接口:    ${urlStr}/api/state` : `  API:        ${urlStr}/api/state`);

@@ -1,5 +1,5 @@
 {
-  "name": "claude-crew",
+  "name": "claude-mood",
   "version": "0.1.0",
   "private": true,
   "description": "A zero-token, pure-local command center that shows how many Claude Code sessions you have running and each one's mood, just by reading the transcript files Claude Code already writes to disk.",

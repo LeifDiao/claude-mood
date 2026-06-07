@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<title>Claude Crew · 小 Claude 打工天团</title>
+<title>Claude Mood · 小 Claude 打工天团</title>
 <style>
   /* ===================== 暖光指挥所 · warm-glow control room ===================== */
   :root{
@@ -525,7 +525,7 @@
   </div>
   <header class="hd">
     <div class="hd-left">
-      <div class="kicker">CLAUDE CREW <span class="badge" id="badge">小 Claude 打工天团</span></div>
+      <div class="kicker">CLAUDE MOOD <span class="badge" id="badge">小 Claude 打工天团</span></div>
       <div class="count-row">
         <span class="live-dot" id="livedot"></span>
         <span class="bigcount mono" id="bigcount">·</span>
@@ -548,7 +548,7 @@
       <span class="pill">只读 ~/.claude</span>
       <span class="pill">零对外请求</span>
     </div>
-    <div id="footcopy">不打扰它们干活 · 一个 token 都没花 — <span class="b">Claude Crew</span> · 小 Claude 打工天团</div>
+    <div id="footcopy">不打扰它们干活 · 一个 token 都没花 — <span class="b">Claude Mood</span> · 小 Claude 打工天团</div>
   </footer>
 </div>
 
@@ -564,7 +564,7 @@
   // 由前端按所选语言渲染。语言切换是纯前端、零网络请求。
   var STR = {
     zh: {
-      docTitle:"Claude Crew · 小 Claude 打工天团",
+      docTitle:"Claude Mood · 小 Claude 打工天团",
       badge:"小 Claude 打工天团",
       tallyAria:"心情统计",
       tallyCap:"此刻心情分布",
@@ -572,7 +572,7 @@
       subtitleTail:"零 token 纯本地围观",
       loading:"正在围观你的小 Claude 们…",
       pills:["零 token","纯本地","只读 ~/.claude","零对外请求"],
-      footer:'不打扰它们干活 · 一个 token 都没花 — <span class="b">Claude Crew</span> · 小 Claude 打工天团',
+      footer:'不打扰它们干活 · 一个 token 都没花 — <span class="b">Claude Mood</span> · 小 Claude 打工天团',
       activeNow:"活跃中",
       activeNowTitle:"此刻活跃中",
       untitled:"(无标题)",
@@ -614,7 +614,7 @@
       }
     },
     en: {
-      docTitle:"Claude Crew · your little Claudes at work",
+      docTitle:"Claude Mood · your little Claudes at work",
       badge:"little Claude work crew",
       tallyAria:"mood tally",
       tallyCap:"mood spread right now",
@@ -622,7 +622,7 @@
       subtitleTail:"zero-token, all-local peek",
       loading:"peeking at your little Claudes…",
       pills:["zero token","all local","reads ~/.claude","no outbound calls"],
-      footer:'never interrupts them · not a single token spent — <span class="b">Claude Crew</span> · little Claude work crew',
+      footer:'never interrupts them · not a single token spent — <span class="b">Claude Mood</span> · little Claude work crew',
       activeNow:"active",
       activeNowTitle:"active right now",
       untitled:"(untitled)",
@@ -667,7 +667,7 @@
 
   // 当前语言：localStorage 记住的优先，否则按浏览器语言（zh* -> 中文，其余 -> 英文）。
   var LANG = (function(){
-    try{ var s = localStorage.getItem("crew-lang"); if(s==="zh"||s==="en") return s; }catch(e){}
+    try{ var s = localStorage.getItem("mood-lang"); if(s==="zh"||s==="en") return s; }catch(e){}
     return (navigator.language||navigator.userLanguage||"").toLowerCase().indexOf("zh")===0 ? "zh" : "en";
   })();
   function T(){ return STR[LANG]; }
@@ -1120,7 +1120,7 @@
   }
   function setLang(l){
     if(l!=="zh" && l!=="en") return;
-    if(l!==LANG){ LANG = l; try{ localStorage.setItem("crew-lang", l); }catch(e){} }
+    if(l!==LANG){ LANG = l; try{ localStorage.setItem("mood-lang", l); }catch(e){} }
     updateToggleUI();
     applyStaticText();
     // 切换是低频操作：强制整网格重建，让每张卡片用新语言重渲染（不必在意这点开销）。

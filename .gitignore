@@ -1,4 +1,19 @@
-node_modules
+# macOS
 .DS_Store
+**/.DS_Store
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs / local artifacts
 *.log
 screenshot-tmp*
